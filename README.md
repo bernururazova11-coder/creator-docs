@@ -103,3 +103,77 @@ To view a page fully formatted per what we see on the `main` branch, replace the
 ## Code of Conduct
 
 To maintain an open, welcoming, diverse, inclusive, and healthy community, this project enforces an adapted version of the Contributor Covenant. For more information, see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+-- LocalScript: StarterPlayerScripts/LocalFly.lua
+local player = game.Players.LocalPlayer
+local flying = false
+local speed = 60 -- default tezlik
+local boostMultiplier = 2
+local bodyGyro, bodyVelocity
+
+local function startFly()
+	if flying then return end
+	local char = player.Character or player.CharacterAdded:Wait()
+	local root = char:WaitForChild("HumanoidRootPart")
+
+	flying = true
+
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.P = 9e4
+	bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+	bodyGyro.CFrame = root.CFrame
+	bodyGyro.Parent = root
+
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	bodyVelocity.Velocity = Vector3.new(0,0,0)
+	bodyVelocity.Parent = root
+end
+
+local function stopFly()
+	if not flying then return end
+	flying = false
+	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+end
+
+-- chat buyruqlari (/fly, /unfly, /speed+ /speed- , /boost)
+player.Chatted:Connect(function(msg)
+	local m = msg:lower()
+	if m == "/fly" then
+		startFly()
+	elseif m == "/unfly" then
+		stopFly()
+	elseif m == "/speed+" then
+		speed = math.clamp(speed + 10, 10, 200)
+		player:SendNotification({Title="Speed", Text=tostring(speed)})
+	elseif m == "/speed-" then
+		speed = math.clamp(speed - 10, 10, 200)
+		player:SendNotification({Title="Speed", Text=tostring(speed)})
+	elseif m == "/boost" then
+		-- qisqa boost: 2 sekund
+		if flying and bodyVelocity then
+			local old = bodyVelocity.Velocity
+			bodyVelocity.Velocity = old * boostMultiplier
+			wait(0.8)
+			-- qaytarish: normal tezlikga
+			-- (Keyin RunService loop tezligi bilan joylashtiriladi)
+		end
+	end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+	if flying and bodyGyro and bodyVelocity and player.Character then
+		local root = player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			-- yo‘nalish: kamera qarayotgan tomonga uchish
+			local camCF = workspace.CurrentCamera.CFrame
+			bodyGyro.CFrame = camCF
+			bodyVelocity.Velocity = camCF.LookVector * speed
+		end
+	end
+end)
+
+-- Character respawn bo‘lsa flyni o‘chirish
+player.CharacterAdded:Connect(function()
+	stopFly()
+end)
